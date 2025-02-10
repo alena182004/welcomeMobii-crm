@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WelcomeMobi CRM</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f8f9fa; color: #333; }
+        h2 { text-align: center; color: #007bff; }
+        input, button, textarea { padding: 10px; margin: 5px; border-radius: 5px; border: 1px solid #ccc; }
+        button { cursor: pointer; background: #007bff; color: white; border: none; }
+        button:hover { background: #0056b3; }
+        table { width: 100%; border-collapse: collapse; background: white; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background: #f4f4f4; }
+        .delete-btn { color: red; cursor: pointer; }
+        .edit-btn { color: blue; cursor: pointer; margin-right: 10px; }
+        .move-btn, .reject-btn { cursor: pointer; margin-left: 10px; }
+        .move-btn { color: green; }
+        .reject-btn { color: orange; }
+        #tabs { display: flex; justify-content: center; margin-bottom: 10px; }
+        #tabs button { margin: 5px; padding: 10px; }
+        .active-tab { background-color: lightgray; }
+        .container { display: flex; justify-content: space-between; }
+        .column { width: 48%; background: white; padding: 15px; border-radius: 5px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }
+    </style>
+</head>
+<body>
+    <h2>WelcomeMobi CRM - Управління кандидатами</h2>
+
+    <div id="tabs">
+        <button id="tab-candidates" class="active-tab" onclick="showTab('candidates')">Кандидати</button>
+        <button id="tab-interviewed" onclick="showTab('interviewed')">Пройшли співбесіду</button>
+    </div>
+
+    <div id="candidates-section">
+        <input type="text" id="search" placeholder="🔍 Пошук кандидата" onkeyup="searchCandidates()">
+        <input type="text" id="name" placeholder="Ім'я">
+        <input type="text" id="city" placeholder="Місто">
+        <input type="text" id="position" placeholder="Посада">
+        <input type="text" id="phone" placeholder="Телефон">
+        <input type="text" id="resume" placeholder="Посилання на резюме">
+        <textarea id="comment" placeholder="Коментар"></textarea>
+        <button onclick="addCandidate()">➕ Додати кандидата</button>
+
+        <div class="container">
+            <div class="column">
+                <h3>Кандидати</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ім'я</th>
+                            <th>Місто</th>
+                            <th>Посада</th>
+                            <th>Телефон</th>
+                            <th>Резюме</th>
+                            <th>Коментар</th>
+                            <th>Дії</th>
+                        </tr>
+                    </thead>
+                    <tbody id="candidate-list"></tbody>
+                </table>
+            </div>
+
+            <div class="column">
+                <h3>Відмовлено</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ім'я</th>
+                            <th>Коментар</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rejected-list"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="interviewed-section" style="display: none;">
+        <h3>Пройшли співбесіду</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Ім'я</th>
+                    <th>Місто</th>
+                    <th>Посада</th>
+                    <th>Телефон</th>
+                    <th>Резюме</th>
+                </tr>
+            </thead>
+            <tbody id="interviewed-list"></tbody>
+        </table>
+    </div>
+
+    <script>
+        let candidates = JSON.parse(localStorage.getItem("candidates")) || [];
+        let interviewed = JSON.parse(localStorage.getItem("interviewed")) || [];
+        let rejected = JSON.parse(localStorage.getItem("rejected")) || [];
+
+        function saveData() {
+            localStorage.setItem("candidates", JSON.stringify(candidates));
+            localStorage.setItem("interviewed", JSON.stringify(interviewed));
+            localStorage.setItem("rejected", JSON.stringify(rejected));
+        }
+
+        function loadCandidates() {
+            let table = document.getElementById("candidate-list");
+            table.innerHTML = "";
+            candidates.forEach((c, index) => {
+                let row = table.insertRow();
+                row.insertCell(0).textContent = c.name || "-";
+                row.insertCell(1).textContent = c.city || "-";
+                row.insertCell(2).textContent = c.position || "-";
+                row.insertCell(3).textContent = c.phone || "-";
+                
+                let resumeCell = row.insertCell(4);
+                if (c.resume) {
+                    let resumeLink = document.createElement("a");
+                    resumeLink.href = c.resume;
+                    resumeLink.textContent = "📄";
+                    resumeLink.target = "_blank";
+                    resumeCell.appendChild(resumeLink);
+                } else {
+                    resumeCell.textContent = "-";
+                }
+
+                row.insertCell(5).textContent = c.comment || "-";
+
+                let actionsCell = row.insertCell(6);
+                let editBtn = document.createElement("span");
+                editBtn.textContent = "✏️";
+                editBtn.classList.add("edit-btn");
+                editBtn.onclick = function() { editCandidate(index); };
+
+                let deleteBtn = document.createElement("span");
+                deleteBtn.textContent = "🗑️";
+                deleteBtn.classList.add("delete-btn");
+                deleteBtn.onclick = function() { deleteCandidate(index); };
+
+                let moveBtn = document.createElement("span");
+                moveBtn.textContent = "✅";
+                moveBtn.classList.add("move-btn");
+                moveBtn.onclick = function() { moveCandidate(index); };
+
+                let rejectBtn = document.createElement("span");
+                rejectBtn.textContent = "❌";
+                rejectBtn.classList.add("reject-btn");
+                rejectBtn.onclick = function() { rejectCandidate(index); };
+
+                actionsCell.append(editBtn, deleteBtn, moveBtn, rejectBtn);
+            });
+        }
+
+        function rejectCandidate(index) {
+            rejected.push(candidates[index]);
+            deleteCandidate(index);
+            saveData();
+            loadRejected();
+        }
+
+        function loadRejected() {
+            let table = document.getElementById("rejected-list");
+            table.innerHTML = "";
+            rejected.forEach(c => {
+                let row = table.insertRow();
+                row.insertCell(0).textContent = c.name;
+                row.insertCell(1).textContent = c.comment || "Без коментаря";
+            });
+        }
+
+        window.onload = function() { loadCandidates(); loadRejected(); loadInterviewed(); };
+    </script>
+</body>
+</html>
